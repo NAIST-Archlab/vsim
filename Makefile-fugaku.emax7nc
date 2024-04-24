@@ -1,0 +1,30 @@
+
+export CPP      = cpp -P
+export CC       = gcc
+export CXX      = g++
+export CFLAGS   = -I. -pthread -O2 -Wno-unknown-pragmas -I/usr/local/include -I/usr/include/openblas -DCBLAS_GEMM -DTRACE_SPIKE -DEMAX7
+export CXXFLAGS = -I. -std=c++11 -O2 -Wno-unknown-pragmas -I/usr/local/include -I/usr/include/openblas -DCBLAS_GEMM -DTRACE_SPIKE -DEMAX7
+export LDFLAGS  = -L/usr/lib64 -L/usr/local/lib -L/usr/lib64/atlas -lm -lrt -lopenblasp-r0.3.3 -lX11 -lXext -lc -pthread
+
+PROGRAM	      =	vsim-fugaku.emax7nc
+OBJS          =	ggml.o xdisp.o monitor.o imax.o smax.o
+OBJSXX        =	vsim.o utils.o
+SRCS          =	$(OBJSXX:.o=.cpp) $(OBJS:.o=.c)
+HEADERS       = ggml.h monitor.h utils.h emax7.h emax7lib.c
+
+all:		$(PROGRAM)
+
+$(PROGRAM):	$(OBJSXX) $(OBJS)
+		$(CXX) $(OBJSXX) $(OBJS) -o $(PROGRAM) $(LDFLAGS) $(CFLAGS)
+
+.cpp.o:		$(HEADERS)
+		$(CXX) $(CXXFLAGS) -c $<
+
+.c.o:		$(HEADERS)
+		$(CC) $(CFLAGS) -c $<
+
+run:;		./$(PROGRAM) gptneox -m $HOME/.cformers/models/OpenAssistant/oasst-sft-1-pythia-12b/int4_fixed_zero --prompt "50278 12092 2 0 50281" --seed 42 --threads 8 --n_predict 100 --top_k 20 --top_p 0.95 --temp 0.85 --repeat_last_n 64 --repeat_penalty 1.3
+
+clean:;		rm -rf *.o *~
+
+###

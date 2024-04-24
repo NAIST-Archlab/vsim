@@ -1,0 +1,6 @@
+#!/bin/csh
+make -f Makefile-acap.emax7+dma clean
+make -f Makefile-acap all clean
+make -f Makefile-acap.emax7nc all clean
+make -f Makefile-acap.emax7 all clean
+make -f Makefile-acap.emax7+dma all clean

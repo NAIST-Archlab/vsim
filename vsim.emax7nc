@@ -1,0 +1,16 @@
+#!/bin/csh -f
+set loc=`dirname $0`
+set nam=`echo $HOST | cut -c1-4`
+cd $loc
+switch ($HOSTTYPE)
+case 'x86_64-linux':
+ ./vsim-ubuntu.emax7nc $*
+ breaksw
+case 'aarch64-linux':
+ if ( $nam == 'cadp' ) then
+ ./vsim-fugaku.emax7nc $*
+ else
+ ./vsim-acap.emax7nc $*
+ endif
+ breaksw
+endsw

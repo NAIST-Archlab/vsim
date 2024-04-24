@@ -1,0 +1,10 @@
+*.obj
+*.o
+vsim-acap
+vsim-acap.emax7
+vsim-acap.emax7+dma
+vsim-acap.emax7nc
+vsim-fugaku
+vsim-fugaku.emax7nc
+vsim-ubuntu
+vsim-ubuntu.emax7nc
