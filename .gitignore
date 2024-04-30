@@ -8,3 +8,5 @@ vsim-fugaku
 vsim-fugaku.emax7nc
 vsim-ubuntu
 vsim-ubuntu.emax7nc
+vsim.c.orig
+**/__pycache__/**
