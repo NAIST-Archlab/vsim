@@ -1,5 +1,7 @@
 *.obj
 *.o
+*-emax*.c
+*.gch
 vsim-acap
 vsim-acap.emax7
 vsim-acap.emax7+dma
@@ -8,3 +10,5 @@ vsim-fugaku
 vsim-fugaku.emax7nc
 vsim-ubuntu
 vsim-ubuntu.emax7nc
+vsim.c.orig
+**/__pycache__/**
