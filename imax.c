@@ -1176,7 +1176,8 @@ void imax_ggml_compute_forward_mul_mat_q4_0_f32(
 /* #define EMAX7_STEP2 */
 /* #define EMAX7_STEP3 */
 /* #define EMAX7_STEP4 */
-#define EMAX7_STEP4
+/* #define EMAX7_STEP5 */
+#define EMAX7_STEP5
 
 #if !defined(EMAX7)
   // nb01 >= nb00 - src0 is not transposed. compute by src0 rows
@@ -1393,6 +1394,7 @@ void imax_ggml_compute_forward_mul_mat_q4_0_f32(
 //EMAX5A drain_dirty_lmm
 
 #elif defined(EMAX7_STEP2)
+  /* conv-c2d: map error */
   if (ith != 0 || nth != 1 || src0->n_dims > 2 || src1->n_dims > 2) {
     printf("imax_ggml_compute_forward_mul_mat_q4_0_f32: ith=%d(!=0), nth=%d(!=1), src0->n_dims=%d(>2), src1->n_dims=%d(>2)\n", ith, nth, src0->n_dims, src1->n_dims);
     exit(1);
@@ -1582,6 +1584,7 @@ void imax_ggml_compute_forward_mul_mat_q4_0_f32(
 //EMAX5A drain_dirty_lmm
 
 #elif defined(EMAX7_STEP3)
+  /* conv-c2d: map error */
   if (ith != 0 || nth != 1 || src0->n_dims > 2 || src1->n_dims > 2) {
     printf("imax_ggml_compute_forward_mul_mat_q4_0_f32: ith=%d(!=0), nth=%d(!=1), src0->n_dims=%d(>2), src1->n_dims=%d(>2)\n", ith, nth, src0->n_dims, src1->n_dims);
     exit(1);
@@ -1955,7 +1958,6 @@ static int check_lmm_fit;
 	    exe(OP_ADD,      &rofs,  rofs,   EXP_H3210,   INIT0?NBNB00_NE0:0, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL,                  OP_NOP, 0LL); /* stage#0 */
 	    exe(OP_ADD,      &iofs,  rofs,   EXP_H3210,   cofs,               EXP_H3210, 0LL, EXP_H3210, OP_AND, 0xffffffff00000000LL, OP_NOP, 0LL); /* stage#1 */
 	    exe(OP_ADD,      &oofs,  rofs,   EXP_H3210,   cofs,               EXP_H3210, 0LL, EXP_H3210, OP_AND, 0x00000000ffffffffLL, OP_NOP, 0LL); /* stage#1 */
-
 	    /* sf¢¢                                                                  */
 	    /*   * * * * * * * * * * * * * * * *    * * * * * * * * * * * * * * * *  *//* FML sd  = sf * s0[i]    */
 	    /* s0¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢ s1¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢ *//*     f32   f32  i4       */
@@ -1973,58 +1975,306 @@ static int check_lmm_fit;
 
 	    /* 1/4                                                                                                               */
 	    /* LDWR(sf:f32)   LDWR(s0:i4x8)                                    W W                    cofs iofs           4  #2  */
-	    /* FMUL sf(f32)*s0(f32) x w8                                       ~~~ 16  17  18  19     cofs iofs           6  #3  */
+	    /* FML  sf(f32)*s0(f32) x w8                                       ~~~ 16  17  18  19     cofs iofs           6  #3  */
 	    /*                                                   16  17  18  19                                                  */
-	    /* LDWR(wf:f32)   LDWR(w0:i4x8)                      |   |   |   | W W                    cofs iofs           8  #4  */
-	    /* FMUL wf(f32)*s0(w32) x w8                         |   |   |   | ~~~ 20  21  22  23     cofs iofs          10  #5  */
-	    /* FMUL sx(f32)*wx(w32) x w8         24  25  26  27                                       cofs iofs           6  #6  */
+	    /* LDWR(wf:f32)   LDWR(w0:i4x8)                      |   |   |   | W W                    cofs iofs           8  #3  */
+	    /* FML  wf(f32)*s0(w32) x w8                         |   |   |   | ~~~ 20  21  22  23     cofs iofs          10  #4  */
+	    /* FML  sx(f32)*wx(w32) x w8         24  25  26  27                                       cofs iofs           6  #5  */
 	    /*                                   |   |   |   |                                                                   */
 	    /* 2/4                               |   |   |   |                                                                   */
-	    /* LDWR(sf:f32)   LDWR(s1:i4x8)      |   |   |   |                 W W                    cofs iofs           8  #7  */
-	    /* FMUL sf(f32)*s1(f32) x w8         |   |   |   |                 ~~~ 16  17  18  19     cofs iofs          10  #8  */
+	    /* LDWR(sf:f32)   LDWR(s1:i4x8)      |   |   |   |                 W W                    cofs iofs           8  #5  */
+	    /* FML  sf(f32)*s1(f32) x w8         |   |   |   |                 ~~~ 16  17  18  19     cofs iofs          10  #6  */
 	    /*                                   |   |   |   |   16  17  18  19                                                  */
-	    /* LDWR(wf:f32)   LDWR(w1:i4x8)      |   |   |   |   |   |   |   | W W                    cofs iofs          12  #9  */
-	    /* FMUL wf(f32)*s1(w32) x w8         |   |   |   |   |   |   |   | ~~~ 20  21  22  23     cofs iofs          14  #10 */
-	    /* FMUL sx(f32)*wx(w32) x w8         28  29  30  31                                       cofs iofs           6  #11 */
+	    /* LDWR(wf:f32)   LDWR(w1:i4x8)      |   |   |   |   |   |   |   | W W                    cofs iofs          12  #6  */
+	    /* FML  wf(f32)*s1(w32) x w8         |   |   |   |   |   |   |   | ~~~ 20  21  22  23     cofs iofs          14  #7  */
+	    /* FMA  sx(f32)*wx(w32) x w8         28  29  30  31                                       cofs iofs           6  #8  */
+	    mul_mat_cores(2,  0, r16, r17, r18, r19);        /* stage #2-#3 */
+	    mul_mat_corew(3,  0, r20, r21, r22, r23, Force); /* stage #3-#4 */
+	    exe(OP_FML,      &r24, r16,         EXP_H3210, r20, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#5 */
+	    exe(OP_FML,      &r25, r17,         EXP_H3210, r21, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#5 */
+	    exe(OP_FML,      &r26, r18,         EXP_H3210, r22, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#5 */
+	    exe(OP_FML,      &r27, r19,         EXP_H3210, r23, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#5 */
 
-	    mul_mat_cores(2,  0, r16, r17, r18, r19);        /* stage #2-#3  */
-	    mul_mat_corew(4,  0, r20, r21, r22, r23, Force); /* stage #4-#5 */
-	    exe(OP_FML,      &r24, r16,         EXP_H3210, r20, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#6 */
-	    exe(OP_FML,      &r25, r17,         EXP_H3210, r21, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#6 */
-	    exe(OP_FML,      &r26, r18,         EXP_H3210, r22, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#6 */
-	    exe(OP_FML,      &r27, r19,         EXP_H3210, r23, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#6 */
+	    mul_mat_cores(5,  1, r16, r17, r18, r19);        /* stage #5-#6 */
+	    mul_mat_corew(6,  1, r20, r21, r22, r23, Force); /* stage #6-#7 */
+	    exe(OP_FMA,      &r28, r24,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#8 */
+	    exe(OP_FMA,      &r29, r25,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#8 */
+	    exe(OP_FMA,      &r30, r26,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#8 */
+	    exe(OP_FMA,      &r31, r27,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#8 */
 
-	    mul_mat_cores(7,  1, r16, r17, r18, r19);        /* stage #7-#8 */
-	    mul_mat_corew(9,  1, r20, r21, r22, r23, Force); /* stage #9-#10 */
-	    exe(OP_FMA,      &r28, r24,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
-	    exe(OP_FMA,      &r29, r25,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
-	    exe(OP_FMA,      &r30, r26,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
-	    exe(OP_FMA,      &r31, r27,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
+	    mul_mat_cores(8, 2, r16, r17, r18, r19);         /* stage #8-#9  */
+	    mul_mat_corew(9, 2, r20, r21, r22, r23, Force);  /* stage #9-#10 */
+	    exe(OP_FMA,      &r24, r28,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
+	    exe(OP_FMA,      &r25, r29,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
+	    exe(OP_FMA,      &r26, r30,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
+	    exe(OP_FMA,      &r27, r31,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
 
-	    mul_mat_cores(12, 2, r16, r17, r18, r19);        /* stage #12-#13 */
-	    mul_mat_corew(14, 2, r20, r21, r22, r23, Force); /* stage #14-#15 */
-	    exe(OP_FMA,      &r24, r28,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#16 */
-	    exe(OP_FMA,      &r25, r29,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#16 */
-	    exe(OP_FMA,      &r26, r30,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#16 */
-	    exe(OP_FMA,      &r27, r31,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#16 */
-
-	    mul_mat_cores(17, 3, r16, r17, r18, r19);        /* stage #17-#18 */
-	    mul_mat_corew(19, 3, r20, r21, r22, r23, Force); /* stage #19-#20 */
-	    exe(OP_FMA,      &r28, r24,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#21 */
-	    exe(OP_FMA,      &r29, r25,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#21 */
-	    exe(OP_FMA,      &r30, r26,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#21 */
-	    exe(OP_FMA,      &r31, r27,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#21 */
+	    mul_mat_cores(11, 3, r16, r17, r18, r19);        /* stage #11-#12 */
+	    mul_mat_corew(12, 3, r20, r21, r22, r23, Force); /* stage #12-#13 */
+	    exe(OP_FMA,      &r28, r24,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#14 */
+	    exe(OP_FMA,      &r29, r25,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#14 */
+	    exe(OP_FMA,      &r30, r26,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#14 */
+	    exe(OP_FMA,      &r31, r27,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#14 */
 
 	    /* FAD tree */
-	    exe(OP_FAD,      &r3,  r28,         EXP_H3210, r29, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#22 */
-	    exe(OP_FAD,      &r4,  r30,         EXP_H3210, r31, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#22 */
+	    exe(OP_FAD,      &r3,  r28,         EXP_H3210, r29, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#15 */
+	    exe(OP_FAD,      &r4,  r30,         EXP_H3210, r31, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#15 */
+	    exe(OP_FAD,      &r2,  r3,          EXP_H3210, r4,  EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#16 */
+	    exe(OP_FAD,      &r1,  r2,          EXP_H3232, r2,  EXP_H1010, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#17 */
 
-	    exe(OP_FAD,      &r2,  r3,          EXP_H3210, r4,  EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#23 */
+	    exe(OP_NOP,      &AR[18][0], 0LL,   EXP_H3210, 0LL, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#18 (dummy to set target location) */
+	    mop(OP_LDWR,  1, &r0,  dst_col,     oofs,      MSK_W0, i_m0C[LANE], NE01NE11,  0, Force, (Ull)NULL, NE01NE11); /* stage#18 */
+	    exe(OP_FAD,      &r0,  INIT0?r0:r0, EXP_H3210, r1,  EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL);
+	    mop(OP_STWR,  1, &r0,  oofs,        dst_col,   MSK_D0, i_m0C[LANE], NE01NE11,  0, Force, (Ull)NULL, NE01NE11);
+          }
+        }
+      }
+//EMAX5A end
+      if (Force) Force = 0; /* reset wdat load to LMM */
+    }
+//EMAX5A drain_dirty_lmm
+    monitor_time_start(THREAD, IMAX_CPYOUT);
+    xmax_cpyout(2, dst->data, 1, 1, i_m0C[LANE], NE01NE11, 1, 1);
+    monitor_time_end(THREAD, IMAX_CPYOUT);
+  }
 
-	    exe(OP_FAD,      &r1,  r2,          EXP_H3232, r2,  EXP_H1010, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#24 */
+#elif defined(EMAX7_STEP5)
+  if (ith != 0 || nth != 1 || src0->n_dims > 2 || src1->n_dims > 2) {
+    printf("imax_ggml_compute_forward_mul_mat_q4_0_f32: ith=%d(!=0), nth=%d(!=1), src0->n_dims=%d(>2), src1->n_dims=%d(>2)\n", ith, nth, src0->n_dims, src1->n_dims);
+    exit(1);
+  }
+  if (ne02 != 1 || ne03 != 1 || ne12 != 1 || ne13 != 1 || ne2 != 1 || ne3 != 1) {
+    printf("imax_ggml_compute_forward_mul_mat_q4_0_f32: ne02=%d(!=1), ne03=%d(!=1), ne12=%d(!=1), ne13=%d(!=1), ne2=%d(!=1), ne3=%d(!=1)\n", ne02, ne03, ne12, ne13, ne2, ne3);
+    exit(1);
+  }
+  /* output: Hi there, how are you doing? I am Open Assistant and here to help... */
+  /*                    <|BEGIN>  50278  12092  2  0  50281  12764  627  13  849  403  368  2509  32 ... <END|> */
+  /* output: Hi there!  <|BEGIN>  50278  12092  2  0  50281  12764  627   2                              <END|> */
+  /* output: Hey there! <|BEGIN>  50278  12092  2  0  50281   8262  627   2                              <END|> */
+  Ull   CHIP, rofs, cofs, iofs, oofs;
+  Ull   LOOP1, LOOP0;
+  Ull   INIT1, INIT0;
+  Ull   AR[64][4];                     /* output of EX     in each unit */
+  Ull   BR[64][4][4];                  /* output registers in each unit */
+  Ull   r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15;
+  Ull   r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30, r31;
+  Ull   cc0, cc1, cc2, cc3, ex0, ex1;
+  Ull   NRNB01d4      = nr*nb01/sizeof(Uint);    /* 50288*3200B/4:40230400 (160MB) max total words of sd */
+  Ull   NBNB00        = (Ull)(nb*nb00);          /* 160 * 20B                                            */
+  Ull   NBNB00d4      = NBNB00/sizeof(int);      /* 160 * 20B /4  :     800  (3KB) max LMM words of sd   */
+  Ull   NBNB00xNE11d4 = NBNB00*ne11/sizeof(int); /* 160 * 20B /4*5:    4000 (16KB) max LMM words of wd   */
+  Ull   MNBNB00_MNE0  = (0LL- NBNB00)<<32|((0LL-(Ull)ne0*sizeof(int))&0xffffffffLL);
+  Ull   NBNB00_NE0    = (     NBNB00)<<32|((    (Ull)ne0*sizeof(int))&0xffffffffLL);
+  Ull   MBS           = (0LL-(Ull)bs)<<32|((0LL-(Ull)0LL)&0xffffffffLL);
+  Ull   BS            = (    (Ull)bs)<<32|((    (Ull)0LL)&0xffffffffLL);
+  Ull   NE01NE11      = ne01*ne11;               /* 50288 * 5    :  251440 (1MB)   max LMM words of dst_col */
+  Ull   Force         = 1; /* force wdat load to LMM */
 
-	    exe(OP_NOP,      &AR[25][0], 0LL,   EXP_H3210, 0LL, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#25 (dummy to set target location) */
-	    mop(OP_LDWR,  1, &r0,  dst_col,     oofs,      MSK_W0, i_m0C[LANE], NE01NE11,  0, Force, (Ull)NULL, NE01NE11); /* stage#25 */
+static int nrnb01d4;
+static int nbnb00d4;
+static int nbnb00xne11d4;
+static int ne01ne11;
+static int updated;
+static int check_lmm;
+static int check_lmm_ovf;
+static int check_lmm_fit;
+
+#if 0
+  if (nrnb01d4      < NRNB01d4)      { nrnb01d4      = NRNB01d4;      updated = 1;}
+  if (nbnb00d4      < NBNB00d4)      { nbnb00d4      = NBNB00d4;      updated = 1;}
+  if (nbnb00xne11d4 < NBNB00xNE11d4) { nbnb00xne11d4 = NBNB00xNE11d4; updated = 1;}
+  if (ne01ne11      < NE01NE11)      { ne01ne11      = NE01NE11;      updated = 1;}
+  if (updated) { printf("max sdat_cpyin=%d sdat_lmmwords=%d wdat_lmmwords=%d dst_lmmwords=%d\n", (int)nrnb01d4, (int)nbnb00d4, (int)nbnb00xne11d4, (int)ne01ne11); updated = 0;}
+  if ((check_lmm++ & 0xff) == 0) { printf("lmm_ovf=%d lmm_fit=%d\n", check_lmm_ovf, check_lmm_fit);}
+  /* 499 @   sdat_cpyin= 4096000 sdat_lmmwords= 800 wdat_lmmwords=  800 dst_lmmwords=  5120 */
+  /* 287 @   sdat_cpyin= 4096000 sdat_lmmwords= 800 wdat_lmmwords= 4000 dst_lmmwords= 25600 */
+  /* 125 @   sdat_cpyin=16384000 sdat_lmmwords= 800 wdat_lmmwords=  800 dst_lmmwords= 20480 */
+  /* 125 @   sdat_cpyin=16384000 sdat_lmmwords=3200 wdat_lmmwords= 3200 dst_lmmwords=  5120 */
+  /*  72 @   sdat_cpyin=16384000 sdat_lmmwords= 800 wdat_lmmwords= 4000 dst_lmmwords=102400 */
+  /*  72 @   sdat_cpyin=16384000 sdat_lmmwords=3200 wdat_lmmwords=16000 dst_lmmwords= 25600 */
+  /*   3 @   sdat_cpyin=40230400 sdat_lmmwords= 800 wdat_lmmwords=  800 dst_lmmwords= 50288 */
+  /*   2 @   sdat_cpyin=40230400 sdat_lmmwords= 800 wdat_lmmwords= 4000 dst_lmmwords=251440 */
+  /*     max sdat_cpyin=40230400 sdat_lmmwords=3200 wdat_lmmwords=16000 dst_lmmwords=251440 */
+  /*                             SDATA:12,800B      WDATA:64,000B       DST:1,005,760B      */
+  /* embd.size()=0 embd_inp.size()=5 params.n_predict=100 */
+#endif
+
+  /* check LMM_SIZE */
+  if (NBNB00d4 > LMM_SIZE/sizeof(Uint) || NBNB00xNE11d4 > LMM_SIZE/sizeof(Uint) || NE01NE11 > LMM_SIZE/sizeof(Uint)) {
+    check_lmm_ovf++;
+    for (int ir = 0; ir < nr; ir++) { /* 5120, 20480, 50288¢£ */
+      const uint8_t * restrict sd = (const uint8_t *)((char *)src0->data + (ir*nb01));              /* nb01:     3200B/ir°˙, 12800B/ir°¸ */
+      float         *     dst_col = (float *)        ((char *) dst->data + (ir*nb0));               /* nb0:      4B                      */
+      for (int ic = 0; ic < ne11; ic++) { /* 1,5,8,9 */
+	const uint8_t * restrict wd = (const uint8_t *)((char *)params->wdata + ic*nb*nb00); /* nb*nb00:3200B(x9=28800B))°˙, 12800B(x9=115200B)°¸ */
+	float sumf = 0.0;
+	/* src0->data   sd[float,4b,4b,...4b][float,4b,4b,...4b][float,4b,4b,...4b][float,4b,4b,...4b][float,4b,4b,...4b] */
+	/* param->wdata wd[float,4b,4b,...4b][float,4b,4b,...4b][float,4b,4b,...4b][float,4b,4b,...4b][float,4b,4b,...4b] */
+	for (int i = 0; i < nb; i++) { /* 160, 640 */
+	  const float         * sdf32 = (const float *) (sd + i*bs);                 /* min:160*20=3200B°˙, max:640*20=12800B°¸ */
+	  const float         * wdf32 = (const float *) (wd + i*bs);                 /* min:160*20=3200B°˙, max:640*20=12800B°¸ */
+	  const uint8_t * restrict s0 = (const uint8_t*)(sd + i*bs + sizeof(float)); /* min:160*20=3200B°˙, max:640*20=12800B°¸ */
+	  const uint8_t * restrict w0 = (const uint8_t*)(wd + i*bs + sizeof(float)); /* min:160*20=3200B°˙, max:640*20=12800B°¸ */
+	  /*          0  4  4  5  5  6  6  7  7  8  8  9  9 10 10 11 11 12 12 13 13 14 15 15 15 16 16 17 17 18 18 19 19 */
+	  /* sd:  float,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b */
+	  /* sdata  ^sdf32 ^s0                                                                                             */
+	  /*            -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
+	  /*            lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi */
+	  /* wd:  float,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b,4b */
+	  /* wdata  ^wdf32 ^w0                                                                                             */
+	  /*            -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
+	  /*            lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi lo hi */
+	  /*             *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  * */
+	  /*      sumf ¶≤ +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +   */
+	  for (int j = 0; j < QK/2; j++) { /* 16 */
+	    const float slo = *sdf32 * ((int8_t)(s0[j] & 0xf) - 8); const float shi = *sdf32 * ((int8_t)(s0[j] >> 4)  - 8);
+	    const float wlo = *wdf32 * ((int8_t)(w0[j] & 0xf) - 8); const float whi = *wdf32 * ((int8_t)(w0[j] >> 4)  - 8);
+	    sumf += slo*wlo + shi*whi;
+	  }
+	}
+	dst_col[ic*ne0] = sumf; /* icÀË§À, ne0:5120W, 20480W, 50288W»Ù§”¢£ ∫«≥∞ir§«4BÀË§À•π•»•¢ */
+      }
+    }
+  }
+  else { /* IMAX */
+#undef  NCHIP
+#define NCHIP 1
+    check_lmm_fit++;
+    int tmp;
+    monitor_time_start(THREAD, IMAX_CPYIN);
+    xmax_cpyin(3, i_m0A[LANE], &tmp, src0->data,    1, 1, 1, NRNB01d4,     1);
+    xmax_cpyin(3, i_m0B[LANE], &tmp, params->wdata, 1, 1, 1, NBNB00xNE11d4,1);
+    xmax_bzero(   i_m0C[LANE], NE01NE11);
+    monitor_time_end(THREAD, IMAX_CPYIN);
+
+    /* sdata n_elements(ne01:50288|20480|5120) * elem_size(nb01:3200|12800)  */
+    /*      5120*12800B=65,536,000B          ir_loop∆‚:sd§œnb01(nb*bs)√±∞Ã++ */
+    /*                                ¢¢20B*nb(160|640) ¢¢20B*nb(160|640) .. */
+    /*                       12800B         ne11(1|5|8|9)≤ÛLOOP1∆‚:¿Ë∆¨∏«ƒÍ  */
+    /*                                        ¢¢¢¢¢¢¢¢¢¢20B ¢¢¢¢¢¢¢¢¢¢20B .. */
+    /*                       12800B       nb(160|640)≤ÛLOOP0∆‚:bs(20B)√±∞Ã++ */
+    /*                                        ¢¢¢¢¢¢¢¢¢¢20B ¢¢¢¢¢¢¢¢¢¢20B .. */
+
+    /* wdata nb(160|640) * nb00(20) * ne11(1|5|8|9)                          */
+    /*                       64000B ne11(1|5|8|9)≤ÛLOOP1∆‚:nb01(nb*bs)√±∞Ã++ */
+    /*                                ¢¢20B*nb(160|640) ¢¢20B*nb(160|640) .. */
+    /*                       12800B       nb(160|640)≤ÛLOOP0∆‚:bs(20B)√±∞Ã++ */
+    /*                                        ¢¢¢¢¢¢¢¢¢¢20B ¢¢¢¢¢¢¢¢¢¢20B .. */
+
+    /* dst   50288 * 5  = 251440                                             */
+    /*                                                     ir_loop∆‚:sd§œ4++ */
+    /*                                       ¢¢4B ---------------- ¢¢4B ..   */
+    /*                                         ¢¢4B ---------------- ¢¢4B .. */
+    /*             50288B ne11(1|5|8|9)≤ÛLOOP1∆‚:ne01(50288|20480|5120B)»Ù§” */
+    /*                                         ¢¢4B ---------------- ¢¢4B .. */
+    /*                                           nb(160|640)≤ÛLOOP0∆‚:∆±∞Ã√÷ */
+    /*                                                                  ¢¢4B */
+
+    for (int ir = 0; ir < nr; ir++) { /* 5120, 20480, 50288¢£ */
+      const uint8_t * restrict sd   = (const uint8_t *)((char *)i_m0A[LANE]+(ir*nb01));
+      const uint8_t * restrict wd   = (const uint8_t *)((char *)i_m0B[LANE]);
+      const uint8_t * restrict sdp[4];
+      const uint8_t * restrict wdp[4];
+      sdp[0] = sd   + sizeof(float)*1;
+      wdp[0] = wd   + sizeof(float)*1;
+      sdp[1] = sd   + sizeof(float)*2;
+      wdp[1] = wd   + sizeof(float)*2;
+      sdp[2] = sd   + sizeof(float)*3;
+      wdp[2] = wd   + sizeof(float)*3;
+      sdp[3] = sd   + sizeof(float)*4;
+      wdp[3] = wd   + sizeof(float)*4;
+      float         *       dst_col = (float *)        ((char *)i_m0C[LANE]+(ir*nb0));  /* nb0: 4B */
+
+#define mul_mat_cores(r, c, d0, d1, d2, d3) \
+	  mop(OP_LDWR,  1, &BR[r][0][1], sd,           cofs, MSK_W1,  (Ull)sd, NBNB00d4,  0, 0, (Ull)NULL, NBNB00d4);\
+	  mop(OP_LDWR,  1, &BR[r][2][1], sdp[c],       cofs, MSK_W1,  (Ull)sd, NBNB00d4,  0, 0, (Ull)NULL, NBNB00d4);\
+	  exe(OP_FML3,     &d0,          BR[r][0][1],  EXP_H1010, BR[r][2][1], EXP_H1010, 0x0003000200010000LL, EXP_B5410, OP_NOP, 0LL, OP_NOP, 0LL);\
+	  exe(OP_FML3,     &d1,          BR[r][0][1],  EXP_H1010, BR[r][2][1], EXP_H1010, 0x0003000200010000LL, EXP_B7632, OP_NOP, 0LL, OP_NOP, 0LL);\
+	  exe(OP_FML3,     &d2,          BR[r][0][1],  EXP_H1010, BR[r][2][1], EXP_H1010, 0x0007000600050004LL, EXP_B5410, OP_NOP, 0LL, OP_NOP, 0LL);\
+	  exe(OP_FML3,     &d3,          BR[r][0][1],  EXP_H1010, BR[r][2][1], EXP_H1010, 0x0007000600050004LL, EXP_B7632, OP_NOP, 0LL, OP_NOP, 0LL)
+
+#define mul_mat_corew(r, c, d0, d1, d2, d3, Force) \
+	  mop(OP_LDWR,  1, &BR[r][0][1], wd,           iofs, MSK_W1,  (Ull)wd, NBNB00xNE11d4, 0, Force, (Ull)NULL, NBNB00xNE11d4);\
+	  mop(OP_LDWR,  1, &BR[r][2][1], wdp[c],       iofs, MSK_W1,  (Ull)wd, NBNB00xNE11d4, 0, Force, (Ull)NULL, NBNB00xNE11d4);\
+	  exe(OP_FML3,     &d0,          BR[r][0][1],  EXP_H1010, BR[r][2][1], EXP_H1010, 0x0003000200010000LL, EXP_B5410, OP_NOP, 0LL, OP_NOP, 0LL);\
+	  exe(OP_FML3,     &d1,          BR[r][0][1],  EXP_H1010, BR[r][2][1], EXP_H1010, 0x0003000200010000LL, EXP_B7632, OP_NOP, 0LL, OP_NOP, 0LL);\
+	  exe(OP_FML3,     &d2,          BR[r][0][1],  EXP_H1010, BR[r][2][1], EXP_H1010, 0x0007000600050004LL, EXP_B5410, OP_NOP, 0LL, OP_NOP, 0LL);\
+	  exe(OP_FML3,     &d3,          BR[r][0][1],  EXP_H1010, BR[r][2][1], EXP_H1010, 0x0007000600050004LL, EXP_B7632, OP_NOP, 0LL, OP_NOP, 0LL)
+
+//EMAX5A begin mul_mat_q4_0_f32 mapdist=0
+ /*3*/for (CHIP=0; CHIP<NCHIP; CHIP++) { /* will be parallelized by multi-chip (M/#chip) */
+   /*2*/for (INIT1=1,LOOP1=ne11,rofs=MNBNB00_MNE0; LOOP1--; INIT1=0) { /* stage#0 *//* mapped to FOR() on BR[63][1][0] */
+     /*1*/for (INIT0=1,LOOP0=nb,cofs=MBS; LOOP0--; INIT0=0) { /* stage#0 *//* mapped to FOR() on BR[63][0][0] */
+            exe(OP_ADD,      &cofs,  INIT0?cofs:cofs,     EXP_H3210, BS,      EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL,                  OP_NOP, 0LL); /* stage#0 */
+	    exe(OP_ADD,      &rofs,  rofs,   EXP_H3210,   INIT0?NBNB00_NE0:0, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL,                  OP_NOP, 0LL); /* stage#0 */
+	    exe(OP_ADD,      &iofs,  rofs,   EXP_H3210,   cofs,               EXP_H3210, 0LL, EXP_H3210, OP_AND, 0xffffffff00000000LL, OP_NOP, 0LL); /* stage#1 */
+	    exe(OP_ADD,      &oofs,  rofs,   EXP_H3210,   cofs,               EXP_H3210, 0LL, EXP_H3210, OP_AND, 0x00000000ffffffffLL, OP_NOP, 0LL); /* stage#1 */
+	    /* sf¢¢                                                                  */
+	    /*   * * * * * * * * * * * * * * * *    * * * * * * * * * * * * * * * *  *//* FML sd  = sf * s0[i]    */
+	    /* s0¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢ s1¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢ *//*     f32   f32  i4       */
+	    /*   * * * * * * * * * * * * * * * *    * * * * * * * * * * * * * * * *  */
+	    /* wf¢¢                                                                  */
+	    /*   * * * * * * * * * * * * * * * *    * * * * * * * * * * * * * * * *  *//* FML wd  = wf * w0[i]    */
+	    /* w0¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢ w1¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢¢ *//*     f32   f32  i4       */
+	    /* ¶≤+ + + + + + + + + + + + + + + +    + + + + + + + + + + + + + + + +  *//* FMA sum = sum + sd * wd */
+	    /*float  sf = *(float*)&BR[2][0][1]; *//* min:160*20=3200B°˙, max:640*20=12800B°¸ */
+	    /*Ull    s0 = BR[2][2][0];           *//* unaligned 64bit low  */
+	    /*Ull    s1 = BR[2][3][0];           *//* unaligned 64bit high */
+	    /*float  wf = *(float*)&BR[3][0][1]; *//* min:160*20=3200B°˙, max:640*20=12800B°¸ *//* rofs NBNB00(nb*nb00):3200B(x9=28800B))°˙, 12800B(x9=115200B)°¸ */
+	    /*Ull    w0 = BR[3][2][0];           *//* unaligned 64bit low  */
+	    /*Ull    w1 = BR[3][3][0];           *//* unaligned 64bit high */
+
+	    /* 1/4                                                                                                               */
+	    /* LDWR(sf:f32)   LDWR(s0:i4x8)                                    W W                    cofs iofs           4  #2  */
+	    /* FML  sf(f32)*s0(f32) x w8                                       ~~~ 16  17  18  19     cofs iofs           6  #3  */
+	    /*                                                   16  17  18  19                                                  */
+	    /* LDWR(wf:f32)   LDWR(w0:i4x8)                      |   |   |   | W W                    cofs iofs           8  #3  */
+	    /* FML  wf(f32)*s0(w32) x w8                         |   |   |   | ~~~ 20  21  22  23     cofs iofs          10  #4  */
+	    /* FML  sx(f32)*wx(w32) x w8         24  25  26  27                                       cofs iofs           6  #5  */
+	    /*                                   |   |   |   |                                                                   */
+	    /* 2/4                               |   |   |   |                                                                   */
+	    /* LDWR(sf:f32)   LDWR(s1:i4x8)      |   |   |   |                 W W                    cofs iofs           8  #5  */
+	    /* FML  sf(f32)*s1(f32) x w8         |   |   |   |                 ~~~ 16  17  18  19     cofs iofs          10  #6  */
+	    /*                                   |   |   |   |   16  17  18  19                                                  */
+	    /* LDWR(wf:f32)   LDWR(w1:i4x8)      |   |   |   |   |   |   |   | W W                    cofs iofs          12  #6  */
+	    /* FML  wf(f32)*s1(w32) x w8         |   |   |   |   |   |   |   | ~~~ 20  21  22  23     cofs iofs          14  #7  */
+	    /* FMA  sx(f32)*wx(w32) x w8         28  29  30  31                                       cofs iofs           6  #8  */
+	    mul_mat_cores(2,  0, r16, r17, r18, r19);        /* stage #2-#3 */
+	    mul_mat_corew(3,  0, r20, r21, r22, r23, Force); /* stage #3-#4 */
+	    exe(OP_FML,      &r24, r16,         EXP_H3210, r20, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#5 */
+	    exe(OP_FML,      &r25, r17,         EXP_H3210, r21, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#5 */
+	    exe(OP_FML,      &r26, r18,         EXP_H3210, r22, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#5 */
+	    exe(OP_FML,      &r27, r19,         EXP_H3210, r23, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#5 */
+
+	    mul_mat_cores(5,  1, r16, r17, r18, r19);        /* stage #5-#6 */
+	    mul_mat_corew(6,  1, r20, r21, r22, r23, Force); /* stage #6-#7 */
+	    exe(OP_FMA,      &r28, r24,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#8 */
+	    exe(OP_FMA,      &r29, r25,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#8 */
+	    exe(OP_FMA,      &r30, r26,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#8 */
+	    exe(OP_FMA,      &r31, r27,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#8 */
+
+	    mul_mat_cores(8, 2, r16, r17, r18, r19);         /* stage #8-#9  */
+	    mul_mat_corew(9, 2, r20, r21, r22, r23, Force);  /* stage #9-#10 */
+	    exe(OP_FMA,      &r24, r28,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
+	    exe(OP_FMA,      &r25, r29,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
+	    exe(OP_FMA,      &r26, r30,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
+	    exe(OP_FMA,      &r27, r31,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#11 */
+
+	    mul_mat_cores(11, 3, r16, r17, r18, r19);        /* stage #11-#12 */
+	    mul_mat_corew(12, 3, r20, r21, r22, r23, Force); /* stage #12-#13 */
+	    exe(OP_FMA,      &r28, r24,         EXP_H3210, r16, EXP_H3210, r20, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#14 */
+	    exe(OP_FMA,      &r29, r25,         EXP_H3210, r17, EXP_H3210, r21, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#14 */
+	    exe(OP_FMA,      &r30, r26,         EXP_H3210, r18, EXP_H3210, r22, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#14 */
+	    exe(OP_FMA,      &r31, r27,         EXP_H3210, r19, EXP_H3210, r23, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#14 */
+
+	    /* FAD tree */
+	    exe(OP_FAD,      &r3,  r28,         EXP_H3210, r29, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#15 */
+	    exe(OP_FAD,      &r4,  r30,         EXP_H3210, r31, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#15 */
+	    exe(OP_FAD,      &r2,  r3,          EXP_H3210, r4,  EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#16 */
+	    exe(OP_FAD,      &r1,  r2,          EXP_H3232, r2,  EXP_H1010, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#17 */
+
+	    exe(OP_NOP,      &AR[18][0], 0LL,   EXP_H3210, 0LL, EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL); /* stage#18 (dummy to set target location) */
+	    mop(OP_LDWR,  1, &r0,  dst_col,     oofs,      MSK_W0, i_m0C[LANE], NE01NE11,  0, Force, (Ull)NULL, NE01NE11); /* stage#18 */
 	    exe(OP_FAD,      &r0,  INIT0?r0:r0, EXP_H3210, r1,  EXP_H3210, 0LL, EXP_H3210, OP_NOP, 0LL, OP_NOP, 0LL);
 	    mop(OP_STWR,  1, &r0,  oofs,        dst_col,   MSK_D0, i_m0C[LANE], NE01NE11,  0, Force, (Ull)NULL, NE01NE11);
           }

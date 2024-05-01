@@ -614,9 +614,35 @@ emax7_check_lmmi_and_dma(int LANE, int mode, int phase, int lastdist, int c, int
 
   /* lmx: bitmap¤ò¸¡ºº¤·,¸½addr+len¤È¼¡addr¤òÈæ¤Ù,Ï¢Â³¤Ê¤éÏ¢·ë¤·¤¿¼¡addr/len¤òÊÝÂ¸.ºÇ½ª¤Þ¤¿¤ÏÉÔÏ¢Â³¤Ê¤éÊÝÂ¸addr/len¤Þ¤¿¤Ï¸½addr/len¤ò»È¤Ã¤ÆDMA */
 
+#if 0
+if (mode==0) {
+printf("EX..DMA phase=%x i=%d m=%d j=%d lmmic/o=%x/%x lmmc_stat=%x(dirty=%x) lmmo_stat=%x(dirty=%x)\n", phase, i, m, j, emax6.lmmic, emax6.lmmio, lmmc_stat, emax6.lmmd[i][j], lmmo_stat, emax6.lmmd[m][j]);
+}
+else {
+printf("DR..DMA phase=%x i=%d j=%d dirty=%x\n", phase, i, j, emax6.lmmd[i][j]);
+}
+#endif
+
+  /*     LD/f=0 ¢ÍA   | LD/f=0 reuse A | LD/f=0 reuse A | LD/f=0     ¢ÍB | LD/f=0 reuse B | LD/f=0 reuse B */
+  /*     LD/f=0 ¢ÍA   | LD/f=0 reuse A | LD/f=1     ¢ÍA | LD/f=0     ¢ÍB | LD/f=0 reuse B | LD/f=1     ¢ÍB */
+  /*     ST/f=0   A   | ST/f=0 ¡ßDR  A | ST/f=0 ¡ßDR  A | ST/f=0 A¢Í   B | ST/f=0 ¡ßDR  B | ST/f=0 ¡ßDR  B */
+  /*µìÀµ ST/f=1 ¢ÍA   | ST/f=1 ¡ßDR  A | ST/f=1 ¡ßDR  A | ST/f=1 A¢Í ¢ÍB | ST/f=1 ¡ßDR  B | ST/f=1 ¡ßDR  B */
+  /*¿·¸í ST/f=1 ¢ÍA   | ST/f=1 ¡ßDR¢ÍA | ST/f=0 ¡ßDR  A | ST/f=1 A¢Í ¢ÍB | ST/f=1 ¡ßDR¢ÍB | ST/f=0 ¡ßDR  B */
+  /*                  |¡úst¤»¤ºA½é´ü²½ |                |                |¡úst¤»¤ºB½é´ü²½ |                */
+  /*¿·Àµ ST/f=1 ¢ÍA   | ST/f=0 ¡ßDR  A | ST/f=0 ¡ßDR  A | ST/f=1 A¢Í ¢ÍB | ST/f=0 ¡ßDR  B | ST/f=0 ¡ßDR  B */
+  /*¿·Àµ ST/f=1 ¢ÍA   |           A!=B¤Î¾ì¹ç¼«Æ°drainÍ­ | ST/f=1 A¢Í ¢ÍB                                   */
+  /*¿·¸í ST/f=1 ¢ÍA   |           A==B¤Î¾ì¹ç¼«Æ°drainÌµ | ST/f=1 ¡ßDR¢ÍB                                   */
+  /*                  |                                 |¡úst¤»¤ºB½é´ü²½                                   */
+  /*¿·Àµ ST/f=1 ¢ÍA   |           A==B¤Î¾ì¹ç¼êÆ°drain A | ST/f=1     ¢ÍB                                   */
+
+  /*²þÀµ ST/f=1 ¢ÍA   | ST/f=1 A¢Í ¢ÍA | ST/f=0 ¡ßDR  A | ST/f=1 A¢Í ¢ÍB | ST/f=1 B¢Í ¢ÍB | ST/f=0 ¡ßDR  B */
+  /*²þÀµ ST/f=1 ¢ÍA   | ST/f=0 ¡ßDR  A | ST/f=0 ¡ßDR  A | ST/f=1 A¢Í ¢ÍB | ST/f=0 ¡ßDR  B | ST/f=0 ¡ßDR  B */
+  /*²þÀµ ST/f=1 ¢ÍA   |           A!=B¤Î¾ì¹ç¼«Æ°drainÍ­ | ST/f=1 A¢Í ¢ÍB                                   */
+  /*²þÀµ ST/f=1 ¢ÍA   |           A==B¤Î¾ì¹ç¼«Æ°drainÍ­ | ST/f=1 A¢Í ¢ÍB                                   */
+
   if      (phase == 1) { /* drain */
     if      (mode==0 && lmmo_stat==12 && !lmm_ready && lmmc_stat!=13 && (emax7[LANE].lmmd[m][j]&1<<c)) { mark=1;emax7[LANE].lmmd[m][j]&=~(1<<c);dmadr=lmmiop->top;dmlen=lmmiop->len;dmnxt=lmmiop1->top;dmrw=1;}/* ¡ü2 lmw&!lmd drain */
-    else if (mode==0 && lmmo_stat==14 && !lmm_ready                  && (emax7[LANE].lmmd[m][j]&1<<c)) { mark=1;emax7[LANE].lmmd[m][j]&=~(1<<c);dmadr=lmmiop->top;dmlen=lmmiop->len;dmnxt=lmmiop1->top;dmrw=1;}/* ¡ü4 lmx      drain */
+    else if (mode==0 && lmmo_stat==14 /*&& !lmm_ready*/              && (emax7[LANE].lmmd[m][j]&1<<c)) { mark=1;emax7[LANE].lmmd[m][j]&=~(1<<c);dmadr=lmmiop->top;dmlen=lmmiop->len;dmnxt=lmmiop1->top;dmrw=1;}/* ¡ü4 lmx      drain */
     else if (mode==1 &&                                                 (emax7[LANE].lmmd[i][j]&1<<c)) { mark=1;emax7[LANE].lmmd[i][j]&=~(1<<c);dmadr=lmmicp->top;dmlen=lmmicp->len;dmnxt=lmmicp1->top;dmrw=1;}/* ¡ù drain_dirty_lmm */
     else                                                                                               { mark=0;                                                                                              }
   }
@@ -723,8 +749,14 @@ emax7_check_lmmi_and_dma(int LANE, int mode, int phase, int lastdist, int c, int
 #endif
     }
 #if 0
-printf("====LANE=%d DMA mode=%x phase=%x i=%x m=%x j=%x lmmic/o=%x/%x lmmc_stat=%x(dirty=%x) lmmo_stat=%x(dirty=%x) mark=%x", LANE, mode, phase, i, m, j, emax7[LANE].lmmic, emax7[LANE].lmmio, lmmc_stat, emax7[LANE].lmmd[i][j], lmmo_stat, emax7[LANE].lmmd[m][j], mark);
-printf(" rw=0x%x ddraddr=%08.8x lmmaddr=%08.8x dmalen=0x%x\n", emax7[LANE].rw, (Uint)emax7[LANE].ddraddr, (Uint)emax7[LANE].lmmaddr, (Uint)emax7[LANE].dmalen);
+if (mode==0) {
+printf("EX==DMA phase=%x i=%d m=%d j=%d lmmic/o=%x/%x lmmc_stat=%x(dirty=%x) lmmo_stat=%x(dirty=%x) mark=%x", phase, i, m, j, emax6.lmmic, emax6.lmmio, lmmc_stat, emax6.lmmd[i][j], lmmo_stat, emax6.lmmd[m][j], mark);
+printf(" rw=0x%x ddraddr=%08.8x lmmaddr=%08.8x dmalen=0x%x\n", emax6.rw, (Uint)emax6.ddraddr, (Uint)emax6.lmmaddr, (Uint)emax6.dmalen);
+}
+else {
+printf("DR==DMA phase=%x i=%d m=%d j=%d dirty=%x mark=%x", phase, i, m, j, emax6.lmmic, emax6.lmmio, emax6.lmmd[i][j], mark);
+printf(" rw=0x%x ddraddr=%08.8x lmmaddr=%08.8x dmalen=0x%x\n", emax6.rw, (Uint)emax6.ddraddr, (Uint)emax6.lmmaddr, (Uint)emax6.dmalen);
+}
 #endif
     concat_adr[LANE][c] = 0;
     //pthread_mutex_lock(&axi_dma_mutex);
